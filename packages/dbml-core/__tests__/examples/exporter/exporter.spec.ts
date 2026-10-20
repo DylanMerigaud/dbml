@@ -359,3 +359,90 @@ describe("@dbml/core - exporter flags", () => {
     });
   });
 });
+
+describe("@dbml/core - project", () => {
+  test("exports the project name, database_type and note", () => {
+    const res = exporter.export(
+      `
+Project project_name {
+  database_type: 'PostgreSQL'
+  Note: 'Description of the project'
+}
+`,
+      "dbml",
+    );
+    expect(res.trim()).toBe(`Project "project_name" {
+  database_type: 'PostgreSQL'
+  Note: 'Description of the project'
+}`);
+  });
+
+  test("exports a project without a name", () => {
+    const res = exporter.export("Project { database_type: 'MySQL' }", "dbml");
+    expect(res.trim()).toBe(`Project {
+  database_type: 'MySQL'
+}`);
+  });
+
+  test("exports a project with only a name", () => {
+    const res = exporter.export("Project project_name {}", "dbml");
+    expect(res.trim()).toBe(`Project "project_name" {
+}`);
+  });
+
+  test("exports a multi-line project note", () => {
+    const res = exporter.export(
+      `
+Project project_name {
+  Note: '''
+  It's the first line
+  second line'''
+}
+`,
+      "dbml",
+    );
+    expect(res.trim()).toBe(`Project "project_name" {
+  Note: '''It\\'s the first line
+second line'''
+}`);
+  });
+
+  test("exports the project before the tables", () => {
+    const res = exporter.export(
+      `
+Table users {
+  id integer [pk]
+}
+
+Project project_name {
+  database_type: 'PostgreSQL'
+}
+`,
+      "dbml",
+    );
+    expect(res.trim()).toBe(`Project "project_name" {
+  database_type: 'PostgreSQL'
+}
+
+Table "users" {
+  "id" integer [pk]
+}`);
+  });
+
+  test("exports the same DBML again from its own output", () => {
+    const first = exporter.export(
+      `
+Project project_name {
+  database_type: 'PostgreSQL'
+  Note: 'Description of the project'
+}
+
+Table users {
+  id integer [pk]
+}
+`,
+      "dbml",
+    );
+    expect(exporter.export(first, "dbml")).toBe(first);
+  });
+});
