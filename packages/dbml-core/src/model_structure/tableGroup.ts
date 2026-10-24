@@ -54,9 +54,11 @@ class TableGroup extends Element {
 
   processTables (rawTables: any[]) {
     rawTables.forEach((rawTable) => {
-      const table = (this.schema as any).database.findTable(rawTable.schemaName, rawTable.name);
+      // The parsers name a group's table `name`, while `exportChild()` writes `tableName`
+      const tableName = rawTable.name ?? rawTable.tableName;
+      const table = (this.schema as any).database.findTable(rawTable.schemaName, tableName);
       if (!table) {
-        this.error(`Table ${rawTable.schemaName ? `"${rawTable.schemaName}".` : ''}${rawTable.name} don't exist`);
+        this.error(`Table ${rawTable.schemaName ? `"${rawTable.schemaName}".` : ''}${tableName} don't exist`);
       }
       this.pushTable(table);
     });

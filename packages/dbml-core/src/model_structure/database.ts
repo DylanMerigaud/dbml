@@ -1,4 +1,4 @@
-import { capitalize, get } from 'lodash-es';
+import { capitalize, get, omit } from 'lodash-es';
 import { parseCardinality, makeCardinalityRequired } from '@dbml/parse';
 import {
   DEFAULT_SCHEMA_NAME, DEP, ENUM, NOTE, REF, TABLE, TABLE_GROUP,
@@ -18,6 +18,14 @@ import type {
 } from '../../types/model_structure/database';
 import type { Token } from '../../types/model_structure/element';
 import type { DiagramView } from '@dbml/parse';
+
+// `export()` nests the elements of each schema under these keys. They are processed with the
+// top-level elements, once every schema exists, so that a ref can find a table of any schema.
+const SCHEMA_ELEMENT_KEYS = ['enums', 'tables', 'refs', 'deps', 'tableGroups'];
+
+function nestedElements (rawSchemas: any[], key: string): any[] {
+  return rawSchemas.flatMap((schema) => (schema[key] || []).map((element: any) => ({ ...element, schemaName: schema.name })));
+}
 
 class Database extends Element {
   dbState: DbState;
@@ -74,13 +82,13 @@ class Database extends Element {
     this.processRecords(records);
     this.processTablePartials(tablePartials);
     this.processSchemas(schemas);
-    this.processSchemaElements(enums, ENUM);
-    this.processSchemaElements(tables, TABLE);
+    this.processSchemaElements([...enums, ...nestedElements(schemas, 'enums')], ENUM);
+    this.processSchemaElements([...tables, ...nestedElements(schemas, 'tables')], TABLE);
     this.linkRecordsToTables();
     this.processSchemaElements(notes, NOTE);
-    this.processSchemaElements(refs, REF);
-    this.processSchemaElements(deps, DEP);
-    this.processSchemaElements(tableGroups, TABLE_GROUP);
+    this.processSchemaElements([...refs, ...nestedElements(schemas, 'refs')], REF);
+    this.processSchemaElements([...deps, ...nestedElements(schemas, 'deps')], DEP);
+    this.processSchemaElements([...tableGroups, ...nestedElements(schemas, 'tableGroups')], TABLE_GROUP);
 
     this.injectedRawRefs.forEach((rawRef) => {
       const schema = this.findOrCreateSchema(DEFAULT_SCHEMA_NAME);
@@ -135,7 +143,7 @@ class Database extends Element {
 
   private processSchemas (rawSchemas: any[]): void {
     rawSchemas.forEach((schema) => {
-      this.pushSchema(new Schema({ ...schema, database: this }));
+      this.pushSchema(new Schema({ ...omit(schema, SCHEMA_ELEMENT_KEYS), database: this }));
     });
   }
 
