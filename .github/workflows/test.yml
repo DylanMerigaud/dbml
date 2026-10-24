@@ -1,25 +1,17 @@
 name: Run unit test & coverage
-on:
+'on':
   push:
-    branches: [master]
-    paths-ignore:
-      - "dbml-homepage/**"
-      - "!dbml-homepage/yarn.lock"
-      - "!dbml-homepage/package.json"
-  pull_request:
-    branches: [master]
-    types: [opened, synchronize]
-    paths-ignore:
-      - "dbml-homepage/**"
-      - "!dbml-homepage/yarn.lock"
-      - "!dbml-homepage/package.json"
+    branches:
+    - ci/fix/514-json-round-trip
+  workflow_dispatch: null
 jobs:
   build:
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     strategy:
       matrix:
-        node-version: [22.x]
+        node-version:
+        - 22.x
     services:
       postgres:
         image: postgres:15-bullseye
@@ -28,37 +20,24 @@ jobs:
           POSTGRES_PASSWORD: testtest
           POSTGRES_DB: dbml_test
         ports:
-          - 5432:5432
-        # Set health checks to wait until postgres has started
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       mssql:
         image: mcr.microsoft.com/mssql/server:2019-latest
         env:
           ACCEPT_EULA: Y
           SA_PASSWORD: dbml.123.123
         ports:
-          - 1433:1433
-        options: >-
-          --health-cmd "exit 0"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        - 1433:1433
+        options: --health-cmd "exit 0" --health-interval 10s --health-timeout 5s --health-retries 5
       mysql-8.0:
         image: mysql:8.0
         env:
           MYSQL_DATABASE: dbml_test
           MYSQL_ROOT_PASSWORD: root
         ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+        - 3306:3306
+        options: --health-cmd "mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 10
       oracle:
         image: gvenzl/oracle-xe:21-slim-faststart
         env:
@@ -67,36 +46,35 @@ jobs:
           APP_USER: dbml
           APP_USER_PASSWORD: root
         ports:
-          - 1521:1521
-        options: >-
-          --health-cmd healthcheck.sh
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
+        - 1521:1521
+        options: --health-cmd healthcheck.sh --health-interval 10s --health-timeout 5s --health-retries 10
     steps:
     - name: Setup Oracle Instant Client
       uses: iamazeem/setup-oracle-instant-client-action@v2
     - uses: actions/checkout@v3
     - name: Import DDL to Postgres
-      run: |
-        psql -h localhost -U dbml -d dbml_test -f packages/dbml-cli/__tests__/db2dbml/postgres/schema.sql
+      run: 'psql -h localhost -U dbml -d dbml_test -f packages/dbml-cli/__tests__/db2dbml/postgres/schema.sql
+
+        '
       env:
         PGPASSWORD: testtest
     - name: Import DDL to MySQL
-      run: |
-        mysql -h 127.0.0.1 -u root -proot dbml_test < packages/dbml-cli/__tests__/db2dbml/mysql/schema.sql
+      run: 'mysql -h 127.0.0.1 -u root -proot dbml_test < packages/dbml-cli/__tests__/db2dbml/mysql/schema.sql
+
+        '
     - name: Import DDL to MSSQL
-      run: |
-        sqlcmd -S localhost -U sa -P dbml.123.123 -d master -i packages/dbml-cli/__tests__/db2dbml/mssql/schema.sql
+      run: 'sqlcmd -S localhost -U sa -P dbml.123.123 -d master -i packages/dbml-cli/__tests__/db2dbml/mssql/schema.sql
+
+        '
     - name: Import DDL to Oracle
-      run: |
-        sqlplus -s dbml/root@localhost:1521/dbml_test @packages/dbml-cli/__tests__/db2dbml/oracle/schema.sql
+      run: 'sqlplus -s dbml/root@localhost:1521/dbml_test @packages/dbml-cli/__tests__/db2dbml/oracle/schema.sql
+
+        '
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-        cache: "yarn"
+        cache: yarn
     - name: Install dependencies
       run: yarn install --frozen-lockfile
     - name: Build packages
@@ -113,7 +91,6 @@ jobs:
         name: coverage-report.md
         path: ./coverage-report.md
         include-hidden-files: true
-
   windows:
     runs-on: windows-latest
     timeout-minutes: 20
@@ -123,21 +100,24 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 22.x
-        cache: "yarn"
+        cache: yarn
     - name: Install dependencies
       run: yarn install --frozen-lockfile
     - name: Build packages
-      run: |
-        yarn workspace @dbml/parse build
+      run: 'yarn workspace @dbml/parse build
+
         yarn workspace @dbml/core build
+
         yarn workspace @dbml/connector build
+
         yarn workspace @dbml/cli build
+
+        '
     - name: Run dbml-cli Windows path tests
       working-directory: packages/dbml-cli
       run: npx vitest run __tests__/windows.test.ts
-
   comment-coverage:
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     continue-on-error: true
     needs: build
